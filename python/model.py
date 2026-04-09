@@ -57,7 +57,7 @@ class VisualEncoder(nn.Module):
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
-    def forward(self, x):
+    def forward(self, x, src_key_padding_mask=None):
         # x: [B, 40, 3, 96, 64] -> меняем для Conv3d на [B, 3, 40, 96, 64]
         x = x.transpose(1, 2)
 
@@ -74,7 +74,7 @@ class VisualEncoder(nn.Module):
         x = self.pos_encoding(x)
         x = self.dropout(x)
 
-        memory = self.transformer_encoder(x)
+        memory = self.transformer_encoder(x, src_key_padding_mask=src_key_padding_mask)
 
         return memory
 
@@ -98,7 +98,7 @@ class TextDecoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.d_model = d_model
 
-    def forward(self, tgt, memory, tgt_padding_mask=None):
+    def forward(self, tgt, memory, tgt_padding_mask=None, memory_padding_mask=None):
         # tgt: (Batch, Seq_Len) - токены
         # memory: выход энкодера
 
@@ -114,7 +114,8 @@ class TextDecoder(nn.Module):
             tgt = tgt_emb,
             memory = memory,
             tgt_mask=causal_mask,
-            tgt_key_padding_mask=tgt_padding_mask
+            tgt_key_padding_mask=tgt_padding_mask,
+            memory_key_padding_mask=memory_padding_mask
         )
 
         logits = self.fc_out(out)  # [Batch, 12, Vocab_Size]
@@ -126,10 +127,10 @@ class LipReadingTransformer(nn.Module):
         self.encoder = VisualEncoder(d_model, nhead, num_layers, dropout)
         self.decoder = TextDecoder(vocab_size, d_model, nhead, num_layers, dropout)
 
-    def forward(self, src_video, tgt_tokens, tgt_padding_mask = None):
+    def forward(self, src_video, tgt_tokens, tgt_padding_mask=None, src_padding_mask=None):
         # Энкодер: Видео -> Контекстные векторы
-        memory = self.encoder(src_video)
+        memory = self.encoder(src_video, src_key_padding_mask=src_padding_mask)
 
         # Декодер: Токены + Память энкодера -> Прогнозы
-        output = self.decoder(tgt_tokens, memory, tgt_padding_mask)
+        output = self.decoder(tgt_tokens, memory, tgt_padding_mask, memory_padding_mask=src_padding_mask)
         return output
