@@ -135,3 +135,34 @@ python/
 ├── find_face.py      # Предобработка видео, выделение области губ
 └── train.ipynb       # Цикл обучения, валидации и тестирования
 ```
+
+## Эксперименты
+D = 256, 33 млн. параметров => Лучшая модель сохранена (val_loss=6.8275)
+Test loss: 6.9937
+Test token accuracy: 0.140
+
+
+D = 64, 7.36 млн. параметров => Лучшая модель сохранена (val_loss=6.9100)
+Test loss: 7.0131
+Test token accuracy: 0.148
+
+model_config_v1 => Лучшая модель сохранена (val_loss=6.8673)
+Test loss: 6.9548
+Test token accuracy: 0.151
+
+model_config_v2 => Лучшая модель сохранена (val_loss=6.9816)
+Test loss: 7.0929
+Test token accuracy: 0.146
+
+model_config_v3 => Лучшая модель сохранена (val_loss=7.3110) 300 эпох + Warmup (50 эпох)
+6,693,123 обучаемых параметров
+Test loss: 7.3807
+Test token accuracy: 0.148
+Epoch 300 | train_loss=3.3228  train_acc=0.480 | val_loss=8.3901  val_acc=0.101 | lr=3.00e-04
+
+model_config_v3 => Лучшая модель сохранена (val_loss=7.3715)
+Параметры: 6,721,571 обучаемых
+Test loss: 7.4121
+Test token accuracy: 0.148
+Epoch  64 | train_loss=5.8520  train_acc=0.159 | val_loss=7.3715  val_acc=0.149 | lr=2.91e-04 *
+Epoch 300 | train_loss=3.4244  train_acc=0.459 | val_loss=8.2573  val_acc=0.106 | lr=3.00e-04

@@ -1,7 +1,21 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import math
-import numpy as np
+import json
+from pathlib import Path
+
+
+def load_config(path):
+    """Загрузить JSON-конфиг модели."""
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _as_tuple(x):
+    """В JSON нет кортежей — только списки. Conv-слои принимают и int, и tuple."""
+    return tuple(x) if isinstance(x, list) else x
+
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=500):
@@ -17,48 +31,71 @@ class PositionalEncoding(nn.Module):
         # x shape: (Batch, Seq_Len, d_model)
         return x + self.pe[:, :x.size(1)]
 
+
 class VisualEncoder(nn.Module):
-    def __init__(self, d_model=256, nhead=8, num_layers=4, dropout=0.2):
+    def __init__(self, encoder_cfg, d_model, nhead, num_layers,
+                 dim_feedforward, dropout, max_frames):
         super().__init__()
 
-        # Вход: [B, 3, 40, 96, 64] (Batch, Channels, Time, Height, Width)
+        # ── CNN Frontend (Conv3d + MaxPool3d) ──
+        fe = encoder_cfg["cnn_frontend"]
+        conv3d_cfg = fe["conv3d"]
+        pool_cfg = fe["maxpool3d"]
+
         self.cnn_frontend = nn.Sequential(
-            nn.Conv3d(3, 64, kernel_size=(5, 5, 5), stride=(1, 2, 2), padding=(2, 2, 2), bias=False),
-            nn.BatchNorm3d(64),
+            nn.Conv3d(
+                in_channels=conv3d_cfg["in_channels"],
+                out_channels=conv3d_cfg["out_channels"],
+                kernel_size=_as_tuple(conv3d_cfg["kernel_size"]),
+                stride=_as_tuple(conv3d_cfg["stride"]),
+                padding=_as_tuple(conv3d_cfg["padding"]),
+                bias=False,
+            ),
+            nn.BatchNorm3d(conv3d_cfg["out_channels"]),
             nn.ReLU(inplace=True),
-            nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1))
+            nn.MaxPool3d(
+                kernel_size=_as_tuple(pool_cfg["kernel_size"]),
+                stride=_as_tuple(pool_cfg["stride"]),
+                padding=_as_tuple(pool_cfg["padding"]),
+            ),
         )
 
-        self.cnn_backbone = nn.Sequential(
-            # [B, 64, 40, 24, 16]
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
+        # ── CNN Backbone (список Conv2d-слоёв) ──
+        backbone_layers = []
+        for layer in encoder_cfg["cnn_backbone"]:
+            backbone_layers += [
+                nn.Conv2d(
+                    in_channels=layer["in_channels"],
+                    out_channels=layer["out_channels"],
+                    kernel_size=_as_tuple(layer["kernel_size"]),
+                    stride=_as_tuple(layer["stride"]),
+                    padding=_as_tuple(layer["padding"]),
+                    bias=False,
+                ),
+                nn.BatchNorm2d(layer["out_channels"]),
+                nn.ReLU(inplace=True),
+            ]
+        backbone_layers.append(nn.AdaptiveAvgPool2d((1, 1)))
+        self.cnn_backbone = nn.Sequential(*backbone_layers)
 
-            # [B, 128, 40, 12, 18]
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1, bias=False),
-            nn.BatchNorm2d(256),
-            nn.ReLU(inplace=True),
-
-            nn.AdaptiveAvgPool2d((1, 1))
-        )
-
-        # Проекция в размерность трансформера
-        self.fc_proj = nn.Linear(256, d_model)
-        self.pos_encoding = PositionalEncoding(d_model, max_len=40)
+        # Размерность последнего выхода backbone -> проекция в d_model
+        last_channels = encoder_cfg["cnn_backbone"][-1]["out_channels"]
+        self.fc_proj = nn.Linear(last_channels, d_model)
+        # Запас в PE на случай, если свёртки по времени изменят длину (padding/stride)
+        self.pos_encoding = PositionalEncoding(d_model, max_len=max(max_frames * 2, 128))
         self.dropout = nn.Dropout(dropout)
 
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
-            dim_feedforward=d_model*4,
+            dim_feedforward=dim_feedforward,
             dropout=dropout,
-            batch_first=True
+            batch_first=True,
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
     def forward(self, x, src_key_padding_mask=None):
-        # x: [B, 40, 3, 96, 64] -> меняем для Conv3d на [B, 3, 40, 96, 64]
+        # x: [B, T, 3, H, W] -> Conv3d ждёт [B, 3, T, H, W]
         x = x.transpose(1, 2)
 
         x = self.cnn_frontend(x)
@@ -74,23 +111,30 @@ class VisualEncoder(nn.Module):
         x = self.pos_encoding(x)
         x = self.dropout(x)
 
+        # Если Conv3d изменил длину времени, приводим маску паддинга к новому T
+        if src_key_padding_mask is not None and src_key_padding_mask.size(1) != T:
+            mask_f = src_key_padding_mask.float().unsqueeze(1)        # [B, 1, T_in]
+            mask_f = F.interpolate(mask_f, size=T, mode="nearest")     # [B, 1, T]
+            src_key_padding_mask = mask_f.squeeze(1).bool()
+
         memory = self.transformer_encoder(x, src_key_padding_mask=src_key_padding_mask)
 
-        return memory
+        return memory, src_key_padding_mask
+
 
 class TextDecoder(nn.Module):
-    def __init__(self, vocab_size, d_model, nhead, num_layers, dropout=0.1):
+    def __init__(self, vocab_size, d_model, nhead, num_layers,
+                 dim_feedforward, dropout, max_tokens):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, d_model)
-        self.pos_encoding = PositionalEncoding(d_model, max_len=12)
+        self.pos_encoding = PositionalEncoding(d_model, max_len=max_tokens)
 
-        # Блок Nx слоев декодера (Masked Multi-Head + Cross-Attention + FF)
         decoder_layer = nn.TransformerDecoderLayer(
             d_model=d_model,
             nhead=nhead,
-            dim_feedforward=d_model*4,
+            dim_feedforward=dim_feedforward,
             dropout=dropout,
-            batch_first=True
+            batch_first=True,
         )
         self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
 
@@ -100,8 +144,6 @@ class TextDecoder(nn.Module):
 
     def forward(self, tgt, memory, tgt_padding_mask=None, memory_padding_mask=None):
         # tgt: (Batch, Seq_Len) - токены
-        # memory: выход энкодера
-
         B, T_tgt = tgt.size()
         tgt_emb = self.embedding(tgt) * math.sqrt(self.d_model)
         tgt_emb = self.pos_encoding(tgt_emb)
@@ -109,28 +151,49 @@ class TextDecoder(nn.Module):
 
         causal_mask = nn.Transformer.generate_square_subsequent_mask(T_tgt).to(tgt.device)
 
-        # Декодер принимает текущие токены и "память" из энкодера
         out = self.transformer_decoder(
-            tgt = tgt_emb,
-            memory = memory,
+            tgt=tgt_emb,
+            memory=memory,
             tgt_mask=causal_mask,
             tgt_key_padding_mask=tgt_padding_mask,
-            memory_key_padding_mask=memory_padding_mask
+            memory_key_padding_mask=memory_padding_mask,
         )
 
-        logits = self.fc_out(out)  # [Batch, 12, Vocab_Size]
+        logits = self.fc_out(out)  # [Batch, Seq_Len, Vocab_Size]
         return logits
 
+
 class LipReadingTransformer(nn.Module):
-    def __init__(self, vocab_size, d_model=256, nhead=8, num_layers=4, dropout=0.2):
+    """
+    Модель конструируется из JSON-конфига (dict или путь к файлу).
+    См. model_config.json для структуры.
+    """
+
+    def __init__(self, config):
         super().__init__()
-        self.encoder = VisualEncoder(d_model, nhead, num_layers, dropout)
-        self.decoder = TextDecoder(vocab_size, d_model, nhead, num_layers, dropout)
+        if isinstance(config, (str, Path)):
+            config = load_config(config)
+        self.config = config
+
+        vocab_size      = config["vocab_size"]
+        d_model         = config["d_model"]
+        nhead           = config["nhead"]
+        num_layers      = config["num_layers"]
+        dim_feedforward = config.get("dim_feedforward", d_model * 4)
+        dropout         = config["dropout"]
+        max_frames      = config["max_frames"]
+        max_tokens      = config["max_tokens"]
+
+        self.encoder = VisualEncoder(
+            config["encoder"], d_model, nhead, num_layers,
+            dim_feedforward, dropout, max_frames,
+        )
+        self.decoder = TextDecoder(
+            vocab_size, d_model, nhead, num_layers,
+            dim_feedforward, dropout, max_tokens,
+        )
 
     def forward(self, src_video, tgt_tokens, tgt_padding_mask=None, src_padding_mask=None):
-        # Энкодер: Видео -> Контекстные векторы
-        memory = self.encoder(src_video, src_key_padding_mask=src_padding_mask)
-
-        # Декодер: Токены + Память энкодера -> Прогнозы
-        output = self.decoder(tgt_tokens, memory, tgt_padding_mask, memory_padding_mask=src_padding_mask)
+        memory, memory_padding_mask = self.encoder(src_video, src_key_padding_mask=src_padding_mask)
+        output = self.decoder(tgt_tokens, memory, tgt_padding_mask, memory_padding_mask=memory_padding_mask)
         return output
