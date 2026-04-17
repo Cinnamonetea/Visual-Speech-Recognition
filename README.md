@@ -160,9 +160,12 @@ Test loss: 7.3807
 Test token accuracy: 0.148
 Epoch 300 | train_loss=3.3228  train_acc=0.480 | val_loss=8.3901  val_acc=0.101 | lr=3.00e-04
 
-model_config_v3 => Лучшая модель сохранена (val_loss=7.3715)
+model_config_v4 => Лучшая модель сохранена (val_loss=7.3715)
 Параметры: 6,721,571 обучаемых
 Test loss: 7.4121
 Test token accuracy: 0.148
 Epoch  64 | train_loss=5.8520  train_acc=0.159 | val_loss=7.3715  val_acc=0.149 | lr=2.91e-04 *
 Epoch 300 | train_loss=3.4244  train_acc=0.459 | val_loss=8.2573  val_acc=0.106 | lr=3.00e-04
+
+## Модель с BPE токенизатором
+model_config_v5 => 392,960 обучаемых параметров
