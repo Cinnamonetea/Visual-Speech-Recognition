@@ -169,3 +169,9 @@ Epoch 300 | train_loss=3.4244  train_acc=0.459 | val_loss=8.2573  val_acc=0.106 
 
 ## Модель с BPE токенизатором
 model_config_v5 => 392,960 обучаемых параметров
+Test loss: 6.0280
+Test token accuracy: 0.118
+
+model_config_v6 => 423,952 обучаемых параметров =>Лучшая модель сохранена (val_loss=7.5149)
+Test loss: 7.5455
+Test token accuracy: 0.118
