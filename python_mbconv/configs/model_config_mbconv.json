@@ -1,0 +1,58 @@
+{
+  "vocab_size": 1200,
+  "d_model": 64,
+  "nhead": 4,
+  "num_layers": 2,
+  "dim_feedforward": 128,
+  "dropout": 0.5,
+  "max_frames": 40,
+  "max_tokens": 12,
+
+  "encoder": {
+    "stem_channels": 32,
+    "drop_path_rate": 0.1,
+
+    "mbconv_blocks": [
+      {
+        "in_channels": 32,
+        "out_channels": 32,
+        "kernel_size": 3,
+        "stride": 1,
+        "expand_ratio": 1,
+        "se_ratio": 0.25,
+        "use_se": true,
+        "_comment": "Refine stem features, skip connection (in==out, stride==1)"
+      },
+      {
+        "in_channels": 32,
+        "out_channels": 64,
+        "kernel_size": 3,
+        "stride": 2,
+        "expand_ratio": 4,
+        "se_ratio": 0.25,
+        "use_se": true,
+        "_comment": "Downsample 32x48 → 16x24, expand channels"
+      },
+      {
+        "in_channels": 64,
+        "out_channels": 64,
+        "kernel_size": 3,
+        "stride": 1,
+        "expand_ratio": 4,
+        "se_ratio": 0.25,
+        "use_se": true,
+        "_comment": "Refine at 16x24, skip connection"
+      },
+      {
+        "in_channels": 64,
+        "out_channels": 128,
+        "kernel_size": 3,
+        "stride": 2,
+        "expand_ratio": 4,
+        "se_ratio": 0.25,
+        "use_se": true,
+        "_comment": "Downsample 16x24 → 8x12, final resolution"
+      }
+    ]
+  }
+}
