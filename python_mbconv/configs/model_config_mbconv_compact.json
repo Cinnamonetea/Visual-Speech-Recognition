@@ -1,0 +1,38 @@
+{
+  "vocab_size": 1200,
+  "d_model": 64,
+  "nhead": 4,
+  "num_layers": 3,
+  "dim_feedforward": 128,
+  "dropout": 0.5,
+  "max_frames": 40,
+  "max_tokens": 12,
+
+  "encoder": {
+    "stem_channels": 32,
+    "drop_path_rate": 0.15,
+
+    "mbconv_blocks": [
+      {
+        "in_channels": 32,
+        "out_channels": 64,
+        "kernel_size": 3,
+        "stride": 2,
+        "expand_ratio": 3,
+        "se_ratio": 0.25,
+        "use_se": true,
+        "_comment": "Downsample 32x48 → 16x24, expand=3, ~14K params"
+      },
+      {
+        "in_channels": 64,
+        "out_channels": 80,
+        "kernel_size": 3,
+        "stride": 2,
+        "expand_ratio": 2,
+        "se_ratio": 0.25,
+        "use_se": true,
+        "_comment": "Downsample 16x24 → 8x12, expand=2, ~30K params"
+      }
+    ]
+  }
+}

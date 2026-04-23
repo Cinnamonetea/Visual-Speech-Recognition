@@ -186,12 +186,16 @@ class LipReadingTransformerMBConv(nn.Module):
         max_frames      = config["max_frames"]
         max_tokens      = config["max_tokens"]
 
+        # Поддержка раздельного числа слоёв encoder/decoder
+        num_encoder_layers = config.get("num_encoder_layers", num_layers)
+        num_decoder_layers = config.get("num_decoder_layers", num_layers)
+
         self.encoder = VisualEncoderMBConv(
-            config["encoder"], d_model, nhead, num_layers,
+            config["encoder"], d_model, nhead, num_encoder_layers,
             dim_feedforward, dropout, max_frames,
         )
         self.decoder = TextDecoder(
-            vocab_size, d_model, nhead, num_layers,
+            vocab_size, d_model, nhead, num_decoder_layers,
             dim_feedforward, dropout, max_tokens,
         )
 
