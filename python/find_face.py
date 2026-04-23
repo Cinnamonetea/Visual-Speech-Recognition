@@ -64,7 +64,7 @@ def process_video(video_path):
 			out.write(frame)
 	cap.release()
 	out.release()
-'''
+
 class LipReading2Preprocessor:
 	def __init__(self, raw_data_path, processed_data_path, tokenizer_name="gpt2"):
 		self.raw_data_path = Path(raw_data_path) # существующий
@@ -298,7 +298,7 @@ class LipReading2Preprocessor:
 			else:
 				print(f"Предупреждение: Не удалось обработать {video_path.name}_{idx}")
 
-'''
+
 class LipReading2Dataset(Dataset):
 	def __init__(self, data_path, split='train_set', max_token_length=50, max_frames_length=90, target_frame_size=(64, 96)):
 		self.data_path = Path(data_path) #/ split
@@ -410,7 +410,7 @@ display_sample_subplots(train_dataset, sample_idx=0, max_frames=12, figsize=(15,
 #print(train_dataset[8]['num_frames'], train_dataset[8]['num_tokens'])
 
 
-'''
+
 train_size = int(0.9 * len(train_dataset))
 val_size = len(train_dataset) - train_size
 
@@ -422,7 +422,7 @@ train_loader = DataLoader(train_set, batch_size=16, shuffle=True, num_workers=4)
 val_loader = DataLoader(val_set, batch_size=16, shuffle=False, num_workers=4)
 
 #process_video("./dataset/video/pt1.mp4")
-'''
+
 
 #preprocessor = LipReading2Preprocessor(
 #    raw_data_path="./dataset_720",
