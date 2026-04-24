@@ -396,14 +396,14 @@ def display_sample_subplots(dataset, sample_idx=0, max_frames=12, figsize=(12, 8
 	plt.close()
 
 
-train_dataset = LipReading2Dataset(
-    data_path='./Dataset_720_proc',
-    max_token_length=50,
-	max_frames_length=90
-)
+# train_dataset = LipReading2Dataset(
+#     data_path='./Dataset_720_proc',
+#     max_token_length=50,
+# 	max_frames_length=90
+# )
 
 # Альтернативное отображение
-display_sample_subplots(train_dataset, sample_idx=0, max_frames=12, figsize=(15, 9), save_path = './sample_720.png')
+# display_sample_subplots(train_dataset, sample_idx=0, max_frames=12, figsize=(15, 9), save_path = './sample_720.png')
 #print(train_dataset[0]['num_frames'], train_dataset[0]['num_tokens'])
 #print(train_dataset[1]['num_frames'], train_dataset[1]['phrase'])
 #print(train_dataset[2]['num_frames'], train_dataset[2]['num_tokens'])
@@ -411,15 +411,15 @@ display_sample_subplots(train_dataset, sample_idx=0, max_frames=12, figsize=(15,
 
 
 
-train_size = int(0.9 * len(train_dataset))
-val_size = len(train_dataset) - train_size
+# train_size = int(0.9 * len(train_dataset))
+# val_size = len(train_dataset) - train_size
 
-train_set, val_set = torch.utils.data.random_split(
-    train_dataset, [train_size, val_size]
-)
+# train_set, val_set = torch.utils.data.random_split(
+#     train_dataset, [train_size, val_size]
+# )
 
-train_loader = DataLoader(train_set, batch_size=16, shuffle=True, num_workers=4)
-val_loader = DataLoader(val_set, batch_size=16, shuffle=False, num_workers=4)
+# train_loader = DataLoader(train_set, batch_size=16, shuffle=True, num_workers=4)
+# val_loader = DataLoader(val_set, batch_size=16, shuffle=False, num_workers=4)
 
 #process_video("./dataset/video/pt1.mp4")
 
