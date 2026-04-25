@@ -1,17 +1,23 @@
 {
-  "vocab_size": 1200,
+  "vocab_size": 55,
   "d_model": 48,
   "nhead": 2,
   "num_layers": 2,
   "num_encoder_layers": 2,
   "num_decoder_layers": 1,
   "dim_feedforward": 96,
-  "dropout": 0.5,
-  "max_frames": 40,
-  "max_tokens": 12,
+  "dropout": 0.3,
+  "max_frames": 75,
+  "max_tokens": 8,
+
+  "_vocab_comment": "52 words + PAD(0) + BOS(1) + EOS(2) = 55",
+  "_frames_comment": "GRID videos are 75 frames at 25fps = 3sec",
+  "_tokens_comment": "6 words + BOS + EOS = 8",
+
   "encoder": {
     "stem_channels": 24,
-    "drop_path_rate": 0.25,
+    "drop_path_rate": 0.1,
+
     "mbconv_blocks": [
       {
         "in_channels": 24,
@@ -20,8 +26,7 @@
         "stride": 2,
         "expand_ratio": 2,
         "se_ratio": 0.25,
-        "use_se": true,
-        "_comment": "Downsample 32x48 → 16x24, ~6K params"
+        "use_se": true
       },
       {
         "in_channels": 48,
@@ -30,8 +35,7 @@
         "stride": 2,
         "expand_ratio": 2,
         "se_ratio": 0.25,
-        "use_se": true,
-        "_comment": "Downsample 16x24 → 8x12, ~18K params"
+        "use_se": true
       }
     ]
   }
