@@ -5,4 +5,4 @@ __pycache__/
 python/token_length_distribution.png
 python_mbconv/best_model_bpe.pt
 pretrain_encoder/pretrained_cnn.pt
-grid_experiment/best_model_grid.pt
+
